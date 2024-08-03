@@ -11,7 +11,7 @@
 		<!-- svelte-ignore a11y-no-static-element-interactions -->
 		<i
 			on:click={() => {
-				editTodo(index, todo);
+				editTodo(index);
 			}}
 			on:keydown={() => {}}
 			class="fa-regular fa-pen-to-square"

@@ -1,7 +1,17 @@
 <script>
+	import { db } from '../../lib/firebase/firebase';
+	import { authHandlers, authStore } from '../../store/store';
+	import { doc, setDoc } from 'firebase/firestore';
+	import TodoItem from '../../components/TodoItem.svelte';
+
 	let todoList = [];
 	let currTodo = '';
 	let error = false;
+	let loading = false;
+
+	authStore.subscribe((curr) => {
+		todoList = curr.data.todos;
+	});
 
 	function addTodo() {
 		error = false;
@@ -12,10 +22,10 @@
 		currTodo = '';
 	}
 
-	function editTodo(index, todo) {
-		if (index >= 0 && index < todoList.length) {
-			todoList[index] = todo;
-		}
+	function editTodo(index) {
+		let newTodoList = [...todoList].filter((value, i) => i !== index);
+		currTodo = todoList[index];
+		todoList = newTodoList;
 	}
 
 	function removeTodo(index) {
@@ -24,37 +34,52 @@
 		todoList = newTodoList;
 	}
 
-	async function saveTodos() {}
+	async function saveTodos() {
+		try {
+			loading = true;
+			const userRef = doc(db, 'users', $authStore.user.uid);
+			await setDoc(userRef, { todos: todoList }, { merge: true });
+			loading = false;
+		} catch (error) {
+			console.log('There was an error saving your info');
+		}
+	}
 </script>
 
-<div class="mainContainer">
-	<div class="headerContainer">
-		<h1>Todo List</h1>
-		<div class="headerBtns">
-			<button on:click={saveTodos}>
-				<i class="fa-regular fa-floppy-disk" />
-				<p>Save</p>
-			</button>
-			<button on:click={authHandlers.logout}>
-				<i class="fa-solid fa-right-from-bracket" />
-				<p>Logout</p>
-			</button>
+{#if !$authStore.loading}
+	<div class="mainContainer">
+		<div class="headerContainer">
+			<h1>Todo List</h1>
+			<div class="headerBtns">
+				<button on:click={saveTodos}>
+					{#if loading}
+						<i class="fa-solid fa-spinner loadingSpinner"></i>
+					{:else}
+						<i class="fa-regular fa-floppy-disk" />
+						<p>Save</p>
+					{/if}
+				</button>
+				<button on:click={authHandlers.logout}>
+					<i class="fa-solid fa-right-from-bracket" />
+					<p>Logout</p>
+				</button>
+			</div>
+		</div>
+
+		<main>
+			{#if todoList.length === 0}
+				<p>You have nothing to do!</p>
+			{/if}
+			{#each todoList as todo, index}
+				<TodoItem {todo} {index} {removeTodo} {editTodo} />
+			{/each}
+		</main>
+		<div class={'enterTodo ' + (error ? ' errorBorder' : '')}>
+			<input bind:value={currTodo} type="text" placeholder="Enter Todo" />
+			<button on:click={addTodo}>ADD</button>
 		</div>
 	</div>
-
-	<main>
-		{#if todoList.length === 0}
-			<p>You have nothing to do!</p>
-		{/if}
-		{#each todoList as todo, index}
-			<Todo {todo} {index} {removeTodo} {editTodo} />
-		{/each}
-	</main>
-	<div class={'enterTodo ' + (error ? 'errorBorder' : '')}>
-		<input bind:value={currTodo} type="text" placeholder="Enter Todo" />
-		<button on:click={addTodo}>ADD</button>
-	</div>
-</div>
+{/if}
 
 <style>
 	.mainContainer {
@@ -91,6 +116,10 @@
 		align-items: center;
 		gap: 10px;
 		cursor: pointer;
+		width: 120px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.headerContainer button i {
@@ -143,5 +172,18 @@
 
 	.enterTodo button:hover {
 		background: transparent;
+	}
+
+	.loadingSpinner {
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
 	}
 </style>
